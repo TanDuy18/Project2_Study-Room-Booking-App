@@ -2,17 +2,17 @@
 
 **Course:** Cross-Platform Mobile App Development (VKU)  
 **Mini-Project Title:** VKU Real-Time Study Room & Lab Booking App  
-**Team / Student Name:** Lê Quang Hiếu  
-**Submission Date:** 28/09/2026
+**Team / Student Name:** Nguyễn Tấn Duy
+**Submission Date:** 13/10/2026
 
 ---
 
 ## 1. GENERAL INFORMATION & DELIVERABLE LINKS
 
-- **Student:** Lê Quang Hiếu — Student ID: 23IT.B056 — Role: Individual Developer — Contribution: 100%
+- **Student:** Nguyễn Tấn Duy — Student ID: 23IT.B029 — Role: Individual Developer — Contribution: 100%
 - **Live Demo URL:** [Expo Go URL / APK Download Link]
-- **GitHub Repository:** https://github.com/LeQuangHieuVKU/VKU_Study-Room-Booking-App
-- **Video Demo (Optional):** [https://youtu.be/xxx]
+- **GitHub Repository:** [https://github.com/TanDuy18/Project2_Study-Room-Booking-App]
+- **Video Demo (Optional):** [https://youtu.be/vUJXgYN7Zyg]
 
 The application is a mobile-first Expo and React Native prototype for discovering VKU study rooms, checking availability, booking a time slot, and presenting a QR access pass.
 
