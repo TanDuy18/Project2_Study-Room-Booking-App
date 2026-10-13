@@ -8,15 +8,27 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useBookingStore } from '../store/useBookingStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { GoogleLogo } from '../components/GoogleLogo';
+import { colors, radius, shadow } from '../theme';
 
 export const ProfileScreen: React.FC = () => {
   const userSession = useBookingStore((s) => s.userSession);
   const reservations = useBookingStore((s) => s.reservations);
   const resetToMockData = useBookingStore((s) => s.resetToMockData);
+  const authUser = useAuthStore((s) => s.authUser);
+  const signOut = useAuthStore((s) => s.signOut);
+
+  const handleSignOut = () =>
+    Alert.alert('Sign out?', 'You can sign in again at any time.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: signOut },
+    ]);
 
   const totalBookings = reservations.length;
   const checkedInCount = reservations.filter((r) => r.status === 'checked_in').length;
@@ -27,7 +39,7 @@ export const ProfileScreen: React.FC = () => {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
-          'Notification Permission',
+          'Notification permission',
           'Please enable notifications in system settings to receive check-in alerts.'
         );
         return;
@@ -45,19 +57,16 @@ export const ProfileScreen: React.FC = () => {
         },
       });
 
-      Alert.alert(
-        'Notification Triggered',
-        'A test check-in notification was scheduled and will appear in 2 seconds.'
-      );
+      Alert.alert('Notification scheduled', 'A test alert will appear in 2 seconds.');
     } catch (err: any) {
-      Alert.alert('Notification Notice', err?.message || 'Notification test finished.');
+      Alert.alert('Notification notice', err?.message || 'Notification test finished.');
     }
   };
 
   const handleResetData = () => {
     Alert.alert(
-      'Reset Demo Data?',
-      'This will reset rooms and initial reservations back to default mock state for grading or testing.',
+      'Reset demo data?',
+      'This restores the default rooms and bookings for grading or testing.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -65,146 +74,135 @@ export const ProfileScreen: React.FC = () => {
           style: 'destructive',
           onPress: () => {
             resetToMockData();
-            Alert.alert('Data Reset', 'Default mock rooms and reservations restored.');
+            Alert.alert('Done', 'Default rooms and bookings restored.');
           },
         },
       ]
     );
   };
 
+  const stats = [
+    { icon: 'calendar' as const, value: String(totalBookings), label: 'Bookings' },
+    { icon: 'time' as const, value: `${totalHours}h`, label: 'Study time' },
+    { icon: 'checkmark-done-circle' as const, value: String(checkedInCount), label: 'Check-ins' },
+  ];
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header Title */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Student Session</Text>
-          <Text style={styles.headerSubtitle}>
-            VKU University Student ID & Study Activity
-          </Text>
-        </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <Text style={styles.title}>Profile</Text>
 
-        {/* Student ID Card */}
-        <View style={styles.studentIdCard}>
-          <View style={styles.cardTopRow}>
-            <View style={styles.vkuLogo}>
-              <Ionicons name="school" size={24} color="#FFFFFF" />
+        {/* Student ID card */}
+        <View style={styles.idCard}>
+          <View style={styles.idTop}>
+            <View style={styles.logo}>
+              <Ionicons name="school" size={22} color="#FFFFFF" />
             </View>
-            <View style={styles.idCardHeader}>
-              <Text style={styles.idCardUniName}>VIETNAM - KOREA UNIVERSITY</Text>
-              <Text style={styles.idCardSub}>Campus Smart Access Pass</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.uni}>VIETNAM - KOREA UNIVERSITY</Text>
+              <Text style={styles.uniSub}>Campus smart access</Text>
             </View>
           </View>
 
-          <View style={styles.idDivider} />
-
-          <View style={styles.studentInfoRow}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitial}>
-                {userSession.name.charAt(0)}
+          <View style={styles.idMain}>
+            {authUser?.picture ? (
+              <Image source={{ uri: authUser.picture }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{userSession.name.charAt(0)}</Text>
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name}>{userSession.name}</Text>
+              <Text style={styles.sid}>{userSession.studentId}</Text>
+              <Text style={styles.dept}>
+                {userSession.department} · {userSession.year}
               </Text>
             </View>
-
-            <View style={styles.studentDetails}>
-              <Text style={styles.studentName}>{userSession.name}</Text>
-              <Text style={styles.studentIdCode}>ID: {userSession.studentId}</Text>
-              <Text style={styles.studentDept}>{userSession.department}</Text>
-              <Text style={styles.studentYear}>{userSession.year}</Text>
-            </View>
           </View>
         </View>
 
-        {/* Reservation Statistics */}
-        <Text style={styles.sectionHeading}>Booking Activity Overview</Text>
-        <View style={styles.statsGrid}>
-          <View style={styles.statBox}>
-            <Ionicons name="calendar" size={22} color="#0F52BA" />
-            <Text style={styles.statNumber}>{totalBookings}</Text>
-            <Text style={styles.statLabel}>Total Bookings</Text>
-          </View>
-
-          <View style={styles.statBox}>
-            <Ionicons name="time" size={22} color="#059669" />
-            <Text style={styles.statNumber}>{totalHours}h</Text>
-            <Text style={styles.statLabel}>Reserved Study</Text>
-          </View>
-
-          <View style={styles.statBox}>
-            <Ionicons name="checkmark-done-circle" size={22} color="#D97706" />
-            <Text style={styles.statNumber}>{checkedInCount}</Text>
-            <Text style={styles.statLabel}>Check-ins Done</Text>
-          </View>
+        {/* Stats */}
+        <View style={styles.statsRow}>
+          {stats.map((s) => (
+            <View key={s.label} style={styles.stat}>
+              <Ionicons name={s.icon} size={20} color={colors.primary} />
+              <Text style={styles.statValue}>{s.value}</Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* Utility Actions */}
-        <Text style={styles.sectionHeading}>App Diagnostics & Testing</Text>
-        <View style={styles.actionCard}>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={handleTestNotification}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.actionIconWrap, { backgroundColor: '#EFF6FF' }]}>
-              <Ionicons name="notifications" size={18} color="#0F52BA" />
-            </View>
-            <View style={styles.actionTextWrap}>
-              <Text style={styles.actionRowTitle}>Test Check-in Notification</Text>
-              <Text style={styles.actionRowDesc}>
-                Fires an immediate 15-minute alert simulation
+        {/* Account */}
+        {authUser && (
+          <View style={styles.accountCard}>
+            {authUser.provider === 'google' ? (
+              <GoogleLogo size={22} />
+            ) : (
+              <Ionicons name="person-circle-outline" size={24} color={colors.primary} />
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.accountTitle}>
+                {authUser.provider === 'google' ? 'Signed in with Google' : 'Demo account'}
+              </Text>
+              <Text style={styles.accountEmail} numberOfLines={1}>
+                {authUser.email}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+            <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+              <Text style={styles.signOutText}>Sign out</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Tools */}
+        <Text style={styles.sectionTitle}>Demo tools</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.actionRow} onPress={handleTestNotification} activeOpacity={0.7}>
+            <View style={[styles.actionIcon, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="notifications" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionTitle}>Test reminder</Text>
+              <Text style={styles.actionDesc}>Send a sample check-in alert in 2 seconds</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
           </TouchableOpacity>
 
           <View style={styles.rowDivider} />
 
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={handleResetData}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.actionIconWrap, { backgroundColor: '#FEF2F2' }]}>
-              <Ionicons name="refresh" size={18} color="#EF4444" />
+          <TouchableOpacity style={styles.actionRow} onPress={handleResetData} activeOpacity={0.7}>
+            <View style={[styles.actionIcon, { backgroundColor: colors.dangerSoft }]}>
+              <Ionicons name="refresh" size={18} color={colors.danger} />
             </View>
-            <View style={styles.actionTextWrap}>
-              <Text style={[styles.actionRowTitle, { color: '#DC2626' }]}>
-                Reset to Seed Demo State
-              </Text>
-              <Text style={styles.actionRowDesc}>
-                Restore default mock rooms & reservations
-              </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.actionTitle, { color: colors.danger }]}>Reset demo data</Text>
+              <Text style={styles.actionDesc}>Restore default rooms and bookings</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
           </TouchableOpacity>
         </View>
 
-        {/* Campus Rules Notice */}
-        <Text style={styles.sectionHeading}>VKU Study Space Guidelines</Text>
-        <View style={styles.rulesCard}>
-          <View style={styles.ruleItem}>
-            <Ionicons name="time-outline" size={16} color="#0F52BA" />
-            <Text style={styles.ruleText}>
-              <Text style={styles.ruleBold}>15-Minute Grace Period:</Text> Check in with your digital QR pass within 15 minutes of slot start time.
-            </Text>
-          </View>
-
-          <View style={styles.ruleItem}>
-            <Ionicons name="shield-outline" size={16} color="#0F52BA" />
-            <Text style={styles.ruleText}>
-              <Text style={styles.ruleBold}>Conflict Protection:</Text> Overlapping reservations are blocked at the engine level in real time.
-            </Text>
-          </View>
-
-          <View style={styles.ruleItem}>
-            <Ionicons name="sparkles-outline" size={16} color="#0F52BA" />
-            <Text style={styles.ruleText}>
-              <Text style={styles.ruleBold}>Clean Space Policy:</Text> Power down projectors and workstations upon leaving.
-            </Text>
-          </View>
+        {/* Rules */}
+        <Text style={styles.sectionTitle}>Room rules</Text>
+        <View style={[styles.card, { padding: 14, gap: 12 }]}>
+          {[
+            { icon: 'time-outline' as const, bold: '15-minute grace period', text: 'Check in with your QR pass within 15 minutes of the slot start.' },
+            { icon: 'shield-checkmark-outline' as const, bold: 'No double booking', text: 'Overlapping reservations are blocked automatically.' },
+            { icon: 'sparkles-outline' as const, bold: 'Leave it tidy', text: 'Power down projectors and workstations when you leave.' },
+          ].map((r) => (
+            <View key={r.bold} style={styles.rule}>
+              <View style={styles.ruleIcon}>
+                <Ionicons name={r.icon} size={16} color={colors.primary} />
+              </View>
+              <Text style={styles.ruleText}>
+                <Text style={styles.ruleBold}>{r.bold}. </Text>
+                {r.text}
+              </Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -212,205 +210,109 @@ export const ProfileScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  studentIdCard: {
-    backgroundColor: '#0F52BA',
-    borderRadius: 20,
+  container: { flex: 1, backgroundColor: colors.bg },
+  scroll: { padding: 16, paddingBottom: 40 },
+  title: { fontSize: 24, fontWeight: '800', color: colors.text, letterSpacing: -0.5, marginBottom: 14 },
+  idCard: {
+    backgroundColor: colors.primaryDark,
+    borderRadius: radius.xl,
     padding: 18,
-    shadowColor: '#0F52BA',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-    marginBottom: 24,
+    marginBottom: 14,
+    ...shadow.card,
   },
-  cardTopRow: {
-    flexDirection: 'row',
+  idTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logo: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.16)',
     alignItems: 'center',
-    gap: 12,
-  },
-  vkuLogo: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  idCardHeader: {
-    flex: 1,
-  },
-  idCardUniName: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  idCardSub: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  idDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginVertical: 14,
-  },
-  studentInfoRow: {
+  uni: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
+  uniSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 },
+  idMain: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    marginTop: 18,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.18)',
   },
-  avatarCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#FFFFFF',
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  avatarInitial: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0F52BA',
-  },
-  studentDetails: {
-    flex: 1,
-  },
-  studentName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  studentIdCode: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FDE047',
-    marginTop: 2,
-  },
-  studentDept: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 2,
-  },
-  studentYear: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.75)',
-  },
-  sectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 10,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 24,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  statNumber: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginTop: 6,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '600',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  actionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 24,
-  },
-  actionRow: {
+  avatarText: { color: '#FFFFFF', fontSize: 24, fontWeight: '800' },
+  avatarImg: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: colors.accent },
+  accountCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
     gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    marginBottom: 22,
   },
-  actionIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  accountTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
+  accountEmail: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  signOutBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
+  },
+  signOutText: { fontSize: 13, fontWeight: '800', color: colors.danger },
+  name: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
+  sid: { color: colors.accent, fontSize: 14, fontWeight: '800', marginTop: 2, letterSpacing: 0.5 },
+  dept: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 22 },
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statValue: { fontSize: 20, fontWeight: '800', color: colors.text, marginTop: 6 },
+  statLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 10 },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 22,
+  },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  actionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  actionTextWrap: {
-    flex: 1,
-  },
-  actionRowTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  actionRowDesc: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  rowDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginHorizontal: 12,
-  },
-  rulesCard: {
-    backgroundColor: '#FFFFFF',
+  actionTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
+  actionDesc: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  rowDivider: { height: 1, backgroundColor: colors.border, marginHorizontal: 14 },
+  rule: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  ruleIcon: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 12,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  ruleItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  ruleText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#475569',
-    lineHeight: 18,
-  },
-  ruleBold: {
-    fontWeight: '700',
-    color: '#0F172A',
-  },
+  ruleText: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+  ruleBold: { fontWeight: '800', color: colors.text },
 });

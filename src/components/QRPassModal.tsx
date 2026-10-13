@@ -11,6 +11,7 @@ import {
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { Reservation } from '../types';
+import { colors, radius, statusMeta } from '../theme';
 
 interface QRPassModalProps {
   visible: boolean;
@@ -18,6 +19,13 @@ interface QRPassModalProps {
   onClose: () => void;
   onCheckIn: (id: string) => void;
 }
+
+const Row: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <View style={styles.row}>
+    <Text style={styles.rowLabel}>{label}</Text>
+    <Text style={styles.rowValue}>{value}</Text>
+  </View>
+);
 
 export const QRPassModal: React.FC<QRPassModalProps> = ({
   visible,
@@ -27,6 +35,7 @@ export const QRPassModal: React.FC<QRPassModalProps> = ({
 }) => {
   if (!reservation) return null;
 
+  const meta = statusMeta[reservation.status];
   const isCheckedIn = reservation.status === 'checked_in';
   const isCancelled = reservation.status === 'cancelled';
 
@@ -40,161 +49,83 @@ export const QRPassModal: React.FC<QRPassModalProps> = ({
   });
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.universityBadge}>VKU CAMPUS ACCESS</Text>
-              <Text style={styles.headerTitle}>Digital Booking Pass</Text>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <SafeAreaView style={styles.overlay}>
+        <View style={styles.card}>
+          {/* Ticket header */}
+          <View style={styles.top}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.badge}>VKU CAMPUS PASS</Text>
+              <Text style={styles.roomName} numberOfLines={2}>
+                {reservation.roomName}
+              </Text>
+              <Text style={styles.when}>
+                {reservation.date} · {reservation.timeRange}
+              </Text>
             </View>
             <TouchableOpacity
               style={styles.closeBtn}
               onPress={onClose}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="close" size={20} color="#64748B" />
+              <Ionicons name="close" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={styles.body}
           >
-            {/* Status Strip */}
-            <View
-              style={[
-                styles.statusStrip,
-                isCheckedIn
-                  ? styles.statusStripCheckedIn
-                  : isCancelled
-                  ? styles.statusStripCancelled
-                  : styles.statusStripConfirmed,
-              ]}
-            >
-              <Ionicons
-                name={
-                  isCheckedIn
-                    ? 'checkmark-circle'
-                    : isCancelled
-                    ? 'close-circle'
-                    : 'time'
-                }
-                size={18}
-                color={
-                  isCheckedIn
-                    ? '#059669'
-                    : isCancelled
-                    ? '#DC2626'
-                    : '#0F52BA'
-                }
-              />
-              <Text
-                style={[
-                  styles.statusStripText,
-                  isCheckedIn
-                    ? styles.statusTextCheckedIn
-                    : isCancelled
-                    ? styles.statusTextCancelled
-                    : styles.statusTextConfirmed,
-                ]}
-              >
+            <View style={[styles.statusPill, { backgroundColor: meta.bg, borderColor: meta.border }]}>
+              <Ionicons name={meta.icon} size={16} color={meta.fg} />
+              <Text style={[styles.statusText, { color: meta.fg }]}>
                 {isCheckedIn
-                  ? 'CHECKED-IN • ACCESS GRANTED'
+                  ? 'Checked in · Access granted'
                   : isCancelled
-                  ? 'RESERVATION CANCELLED'
-                  : 'CONFIRMED • READY FOR SCAN'}
+                  ? 'Reservation cancelled'
+                  : 'Ready to scan at the door'}
               </Text>
             </View>
 
-            {/* QR Code Container */}
-            <View style={styles.qrContainer}>
-              <View style={styles.qrFrame}>
-                <QRCode
-                  value={qrDataPayload}
-                  size={190}
-                  color={isCancelled ? '#94A3B8' : '#0F172A'}
-                  backgroundColor="#FFFFFF"
-                />
-              </View>
-              <Text style={styles.passCode}>{reservation.id}</Text>
-              <Text style={styles.scanInstruction}>
-                {isCancelled
-                  ? 'This pass has been cancelled.'
-                  : isCheckedIn
-                  ? 'Room door unlocked. Study session active.'
-                  : 'Scan at the smart door reader at the room entrance.'}
-              </Text>
+            <View style={styles.qrFrame}>
+              <QRCode
+                value={qrDataPayload}
+                size={190}
+                color={isCancelled ? colors.textFaint : colors.primaryDark}
+                backgroundColor="#FFFFFF"
+              />
+            </View>
+            <Text style={styles.passCode}>{reservation.id}</Text>
+
+            {/* Ticket tear line */}
+            <View style={styles.tear}>
+              <View style={[styles.notch, { left: -30 }]} />
+              <View style={styles.tearLine} />
+              <View style={[styles.notch, { right: -30 }]} />
             </View>
 
-            {/* Ticket Details */}
-            <View style={styles.detailsCard}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Study Room</Text>
-                <Text style={styles.detailValueBold}>{reservation.roomName}</Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.twoColRow}>
-                <View style={styles.col}>
-                  <Text style={styles.detailLabel}>Date</Text>
-                  <Text style={styles.detailValue}>{reservation.date}</Text>
-                </View>
-                <View style={styles.col}>
-                  <Text style={styles.detailLabel}>Time Slot</Text>
-                  <Text style={styles.detailValue}>{reservation.timeRange}</Text>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.twoColRow}>
-                <View style={styles.col}>
-                  <Text style={styles.detailLabel}>Student</Text>
-                  <Text style={styles.detailValue}>{reservation.studentName}</Text>
-                </View>
-                <View style={styles.col}>
-                  <Text style={styles.detailLabel}>Student ID</Text>
-                  <Text style={styles.detailValue}>{reservation.studentId}</Text>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Study Purpose</Text>
-                <Text style={styles.detailValueItalic}>
-                  "{reservation.groupPurpose}"
-                </Text>
-              </View>
+            <View style={styles.details}>
+              <Row label="Student" value={`${reservation.studentName} (${reservation.studentId})`} />
+              <Row label="Location" value={`Building ${reservation.building}, Floor ${reservation.floor}`} />
+              <Row label="Purpose" value={reservation.groupPurpose} />
             </View>
 
-            {/* Check-In Action Button */}
             {!isCheckedIn && !isCancelled && (
               <TouchableOpacity
-                style={styles.checkInActionBtn}
+                style={styles.checkInBtn}
                 onPress={() => onCheckIn(reservation.id)}
-                activeOpacity={0.85}
+                activeOpacity={0.88}
               >
                 <Ionicons name="scan-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.checkInActionBtnText}>
-                  Simulate Smart Door Check-in
-                </Text>
+                <Text style={styles.checkInText}>Simulate door check-in</Text>
               </TouchableOpacity>
             )}
 
             {isCheckedIn && (
-              <View style={styles.checkedInNotice}>
-                <Ionicons name="checkmark-done" size={20} color="#059669" />
-                <Text style={styles.checkedInNoticeText}>
-                  You are checked in! Remember to vacate the room before the slot ends.
+              <View style={styles.note}>
+                <Ionicons name="checkmark-done" size={18} color={colors.success} />
+                <Text style={styles.noteText}>
+                  You're in! Please leave the room before your slot ends.
                 </Text>
               </View>
             )}
@@ -206,202 +137,113 @@ export const QRPassModal: React.FC<QRPassModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(27, 23, 48, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+  card: {
     width: '100%',
-    maxHeight: '90%',
+    maxHeight: '92%',
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 25,
-    elevation: 10,
   },
-  header: {
+  top: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    alignItems: 'flex-start',
+    backgroundColor: colors.primaryDark,
+    padding: 18,
+    gap: 12,
   },
-  universityBadge: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0F52BA',
-    letterSpacing: 1.2,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
+  badge: { color: colors.accent, fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
+  roomName: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', marginTop: 4 },
+  when: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 4, fontWeight: '600' },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  scrollContent: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  statusStrip: {
+  body: { padding: 20, alignItems: 'center' },
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 20,
-    gap: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
     marginBottom: 16,
   },
-  statusStripConfirmed: {
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  statusStripCheckedIn: {
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  statusStripCancelled: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  statusStripText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  statusTextConfirmed: {
-    color: '#1E40AF',
-  },
-  statusTextCheckedIn: {
-    color: '#065F46',
-  },
-  statusTextCancelled: {
-    color: '#991B1B',
-  },
-  qrContainer: {
-    alignItems: 'center',
-    marginVertical: 4,
-  },
+  statusText: { fontSize: 12, fontWeight: '700' },
   qrFrame: {
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: radius.lg,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    borderColor: colors.primaryBorder,
+    backgroundColor: '#FFFFFF',
   },
   passCode: {
     marginTop: 12,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
     letterSpacing: 1.5,
+    color: colors.text,
   },
-  scanInstruction: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-    maxWidth: 260,
-  },
-  detailsCard: {
+  tear: {
     width: '100%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    height: 24,
+    justifyContent: 'center',
+    marginVertical: 12,
   },
-  detailRow: {
-    marginVertical: 2,
+  tearLine: {
+    borderTopWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
   },
-  twoColRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  notch: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(27, 23, 48, 0.7)',
   },
-  col: {
+  details: { width: '100%', gap: 10 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  rowLabel: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
+  rowValue: {
     flex: 1,
-  },
-  detailLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 2,
-  },
-  detailValue: {
+    textAlign: 'right',
     fontSize: 13,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-  detailValueBold: {
-    fontSize: 14,
+    color: colors.text,
     fontWeight: '700',
-    color: '#0F172A',
   },
-  detailValueItalic: {
-    fontSize: 13,
-    color: '#334155',
-    fontStyle: 'italic',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 8,
-  },
-  checkInActionBtn: {
+  checkInBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F52BA',
-    borderRadius: 12,
-    width: '100%',
-    paddingVertical: 12,
-    marginTop: 16,
     gap: 8,
+    width: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    marginTop: 20,
   },
-  checkInActionBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  checkedInNotice: {
+  checkInText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  note: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
     gap: 8,
     width: '100%',
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.md,
+    padding: 12,
+    marginTop: 20,
   },
-  checkedInNoticeText: {
-    color: '#065F46',
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-  },
+  noteText: { flex: 1, fontSize: 12, fontWeight: '600', color: colors.success },
 });

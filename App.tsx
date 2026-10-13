@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,8 +10,11 @@ import { RoomListScreen } from './src/screens/RoomListScreen';
 import { RoomDetailScreen } from './src/screens/RoomDetailScreen';
 import { MyBookingsScreen } from './src/screens/MyBookingsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { useBookingStore } from './src/store/useBookingStore';
+import { useAuthStore } from './src/store/useAuthStore';
 import { initNotifications } from './src/utils/notifications';
+import { colors } from './src/theme';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -26,11 +29,11 @@ function BottomTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0F52BA',
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textFaint,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E2E8F0',
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           height: 60,
           paddingBottom: 8,
@@ -38,7 +41,7 @@ function BottomTabs() {
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontWeight: '700',
         },
       }}
     >
@@ -59,7 +62,7 @@ function BottomTabs() {
           tabBarLabel: 'My Bookings',
           tabBarBadge: activeCount > 0 ? activeCount : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: '#0F52BA',
+            backgroundColor: colors.accent,
             fontSize: 10,
             fontWeight: '700',
           },
@@ -83,30 +86,43 @@ function BottomTabs() {
 }
 
 export default function App() {
+  const authUser = useAuthStore((s) => s.authUser);
+  const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated());
+
   useEffect(() => {
     // Initialize notification channels and permissions
     initNotifications();
+    // Wait for the saved login state before deciding which screen to show
+    const unsub = useAuthStore.persist.onFinishHydration(() => setHydrated(true));
+    return unsub;
   }, []);
+
+  if (!hydrated) return null;
 
   return (
     <View style={styles.appContainer}>
-      <StatusBar style="dark" />
-      <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName="MainTabs"
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-          }}
-        >
-          <Stack.Screen name="MainTabs" component={BottomTabs} />
-          <Stack.Screen
-            name="RoomDetail"
-            component={RoomDetailScreen}
-            options={{ animation: 'slide_from_bottom' }}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <StatusBar style={authUser ? 'dark' : 'light'} />
+
+      {!authUser ? (
+        <LoginScreen />
+      ) : (
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName="MainTabs"
+            screenOptions={{
+              headerShown: false,
+              animation: 'slide_from_right',
+            }}
+          >
+            <Stack.Screen name="MainTabs" component={BottomTabs} />
+            <Stack.Screen
+              name="RoomDetail"
+              component={RoomDetailScreen}
+              options={{ animation: 'slide_from_bottom' }}
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      )}
     </View>
   );
 }
@@ -114,6 +130,6 @@ export default function App() {
 const styles = StyleSheet.create({
   appContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.bg,
   },
 });

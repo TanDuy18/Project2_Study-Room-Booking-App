@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BuildingId, EquipmentItem } from '../types';
+import { colors, radius, equipmentIcon } from '../theme';
 
 interface FilterBarProps {
   searchQuery: string;
@@ -27,6 +28,24 @@ const BUILDINGS: (BuildingId | 'All')[] = ['All', 'A', 'B', 'C', 'V'];
 const CAPACITIES: ('All' | '2-4' | '5-8' | '9-20')[] = ['All', '2-4', '5-8', '9-20'];
 const EQUIPMENT_LIST: EquipmentItem[] = ['Projector', 'Whiteboard', 'High-spec PC', 'AC'];
 
+const Chip: React.FC<{
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  icon?: keyof typeof Ionicons.glyphMap;
+}> = ({ label, active, onPress, icon }) => (
+  <TouchableOpacity
+    style={[styles.chip, active && styles.chipActive]}
+    onPress={onPress}
+    activeOpacity={0.8}
+  >
+    {icon && (
+      <Ionicons name={icon} size={14} color={active ? '#FFFFFF' : colors.textMuted} />
+    )}
+    <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+  </TouchableOpacity>
+);
+
 export const FilterBar: React.FC<FilterBarProps> = ({
   searchQuery,
   onSearchChange,
@@ -39,19 +58,22 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onResetFilters,
   activeFilterCount,
 }) => {
+  const [open, setOpen] = useState(false);
+  const advancedCount =
+    (selectedCapacity !== 'All' ? 1 : 0) + selectedEquipment.length;
+
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
+      {/* Search + advanced filter toggle */}
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color="#64748B" style={styles.searchIcon} />
+          <Ionicons name="search" size={18} color={colors.textFaint} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search room (e.g. B.302, AI Lab, Projector)..."
-            placeholderTextColor="#94A3B8"
+            placeholder="Room, lab, equipment..."
+            placeholderTextColor={colors.textFaint}
             value={searchQuery}
             onChangeText={onSearchChange}
-            clearButtonMode="while-editing"
             autoCorrect={false}
           />
           {searchQuery.length > 0 && (
@@ -59,198 +81,169 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onPress={() => onSearchChange('')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+              <Ionicons name="close-circle" size={18} color={colors.textFaint} />
             </TouchableOpacity>
           )}
         </View>
 
-        {activeFilterCount > 0 && (
-          <TouchableOpacity
-            style={styles.resetButton}
-            onPress={onResetFilters}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="refresh" size={14} color="#EF4444" />
-            <Text style={styles.resetButtonText}>Reset ({activeFilterCount})</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.filterBtn, (open || advancedCount > 0) && styles.filterBtnActive]}
+          onPress={() => setOpen((o) => !o)}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="options-outline"
+            size={20}
+            color={open || advancedCount > 0 ? '#FFFFFF' : colors.primary}
+          />
+          {advancedCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{advancedCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      {/* Building Filter Row */}
-      <View style={styles.sectionRow}>
-        <Text style={styles.sectionLabel}>Building:</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsContainer}
-        >
-          {BUILDINGS.map((bldg) => {
-            const isSelected = selectedBuilding === bldg;
-            return (
-              <TouchableOpacity
-                key={bldg}
-                style={[styles.chip, isSelected && styles.chipActive]}
-                onPress={() => onBuildingSelect(bldg)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                  {bldg === 'All' ? 'All Wings' : `Bldg ${bldg}`}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+      {/* Building chips: always visible (most used filter) */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsRow}
+      >
+        {BUILDINGS.map((b) => (
+          <Chip
+            key={b}
+            label={b === 'All' ? 'All buildings' : `Building ${b}`}
+            active={selectedBuilding === b}
+            onPress={() => onBuildingSelect(b)}
+          />
+        ))}
+      </ScrollView>
 
-      {/* Capacity & Equipment Filter Row */}
-      <View style={styles.sectionRow}>
-        <Text style={styles.sectionLabel}>Capacity:</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsContainer}
-        >
-          {CAPACITIES.map((cap) => {
-            const isSelected = selectedCapacity === cap;
-            return (
-              <TouchableOpacity
-                key={cap}
-                style={[styles.chip, isSelected && styles.chipActive]}
-                onPress={() => onCapacitySelect(cap)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                  {cap === 'All' ? 'Any size' : `${cap} seats`}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+      {/* Advanced panel: capacity + equipment */}
+      {open && (
+        <View style={styles.panel}>
+          <Text style={styles.panelLabel}>Group size</Text>
+          <View style={styles.wrapRow}>
+            {CAPACITIES.map((c) => (
+              <Chip
+                key={c}
+                label={c === 'All' ? 'Any size' : `${c} people`}
+                icon="people-outline"
+                active={selectedCapacity === c}
+                onPress={() => onCapacitySelect(c)}
+              />
+            ))}
+          </View>
 
-      {/* Equipment Row */}
-      <View style={styles.sectionRow}>
-        <Text style={styles.sectionLabel}>Equip:</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsContainer}
-        >
-          {EQUIPMENT_LIST.map((eq) => {
-            const isSelected = selectedEquipment.includes(eq);
-            return (
-              <TouchableOpacity
+          <Text style={styles.panelLabel}>Equipment</Text>
+          <View style={styles.wrapRow}>
+            {EQUIPMENT_LIST.map((eq) => (
+              <Chip
                 key={eq}
-                style={[styles.chip, isSelected && styles.chipActive]}
+                label={eq}
+                icon={equipmentIcon[eq]}
+                active={selectedEquipment.includes(eq)}
                 onPress={() => onEquipmentToggle(eq)}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={isSelected ? 'checkbox' : 'square-outline'}
-                  size={12}
-                  color={isSelected ? '#FFFFFF' : '#64748B'}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                  {eq}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+              />
+            ))}
+          </View>
+
+          {activeFilterCount > 0 && (
+            <TouchableOpacity style={styles.clearBtn} onPress={onResetFilters}>
+              <Ionicons name="refresh" size={14} color={colors.danger} />
+              <Text style={styles.clearText}>Clear all filters ({activeFilterCount})</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
+    backgroundColor: colors.surface,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomLeftRadius: radius.xl,
+    borderBottomRightRadius: radius.xl,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderColor: colors.border,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 8,
-    gap: 8,
+    gap: 10,
+    marginBottom: 10,
   },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    gap: 8,
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
-    height: 42,
+    height: 46,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#0F172A',
-    paddingVertical: 0,
-  },
-  resetButton: {
-    flexDirection: 'row',
+  searchInput: { flex: 1, fontSize: 14, color: colors.text, paddingVertical: 0 },
+  filterBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    gap: 4,
+    justifyContent: 'center',
   },
-  resetButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#DC2626',
-  },
-  sectionRow: {
-    flexDirection: 'row',
+  filterBtnActive: { backgroundColor: colors.primary },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.accent,
     alignItems: 'center',
-    marginVertical: 3,
-    paddingLeft: 16,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    width: 60,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  chipsContainer: {
-    paddingRight: 16,
-    gap: 6,
-  },
+  badgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  chipsRow: { paddingHorizontal: 16, gap: 8 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 14,
+    gap: 6,
+    backgroundColor: colors.bg,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
-  chipActive: {
-    backgroundColor: '#0F52BA',
-    borderColor: '#0F52BA',
-  },
-  chipText: {
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: 13, fontWeight: '600', color: colors.textMuted },
+  chipTextActive: { color: '#FFFFFF' },
+  panel: { paddingHorizontal: 16, paddingTop: 12 },
+  panelLabel: {
     fontSize: 12,
-    color: '#475569',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: colors.textMuted,
+    marginBottom: 8,
+    marginTop: 4,
   },
-  chipTextActive: {
-    color: '#FFFFFF',
+  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  clearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    marginTop: 4,
   },
+  clearText: { fontSize: 13, fontWeight: '700', color: colors.danger },
 });

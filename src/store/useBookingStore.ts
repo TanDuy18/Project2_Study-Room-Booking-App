@@ -57,8 +57,8 @@ const DEFAULT_FILTERS: FilterState = {
 };
 
 const DEFAULT_USER_SESSION: UserSession = {
-  studentId: '21IT089',
-  name: 'Nguyen Van An',
+  studentId: '23IT.B029',
+  name: 'Nguyen Tan Duy',
   email: 'annv.21it@vku.udn.vn',
   department: 'Faculty of Computer Science',
   year: '4th Year (VKU K21)',

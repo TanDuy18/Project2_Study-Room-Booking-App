@@ -17,32 +17,36 @@ import { useBookingStore } from '../store/useBookingStore';
 import { TIME_SLOTS } from '../data/mockRooms';
 import { Reservation, TimeSlot } from '../types';
 import { QRPassModal } from '../components/QRPassModal';
+import { colors, radius, equipmentIcon } from '../theme';
 
-// Generate 7-day range starting today
 const generateNext7Days = () => {
   const days = [];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const monthNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   for (let i = 0; i < 7; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
-    const dateString = d.toISOString().split('T')[0];
-    const isToday = i === 0;
-
     days.push({
-      dateString,
-      isToday,
-      dayOfWeek: isToday ? 'Today' : dayNames[d.getDay()],
+      dateString: d.toISOString().split('T')[0],
+      dayOfWeek: i === 0 ? 'Today' : dayNames[d.getDay()],
       dayNumber: d.getDate(),
       month: monthNames[d.getMonth()],
     });
   }
   return days;
 };
+
+const PURPOSE_SUGGESTIONS = ['Group study', 'Capstone project', 'Club meeting', 'Exam prep'];
+
+const StepTitle: React.FC<{ n: number; title: string; right?: string }> = ({ n, title, right }) => (
+  <View style={styles.stepRow}>
+    <View style={styles.stepNum}>
+      <Text style={styles.stepNumText}>{n}</Text>
+    </View>
+    <Text style={styles.stepTitle}>{title}</Text>
+    {right ? <Text style={styles.stepRight}>{right}</Text> : null}
+  </View>
+);
 
 export const RoomDetailScreen: React.FC = () => {
   const route = useRoute<any>();
@@ -53,6 +57,7 @@ export const RoomDetailScreen: React.FC = () => {
   const isSlotBooked = useBookingStore((s) => s.isSlotBooked);
   const createReservation = useBookingStore((s) => s.createReservation);
   const checkInReservation = useBookingStore((s) => s.checkInReservation);
+  useBookingStore((s) => s.reservations); // re-render slots when bookings change
 
   const room = rooms.find((r) => r.id === roomId);
 
@@ -61,43 +66,36 @@ export const RoomDetailScreen: React.FC = () => {
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [purpose, setPurpose] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
-  // QR Pass Modal state
   const [passModalVisible, setPassModalVisible] = useState<boolean>(false);
   const [generatedPass, setGeneratedPass] = useState<Reservation | null>(null);
 
   if (!room) {
     return (
-      <SafeAreaView style={styles.notFoundContainer}>
+      <SafeAreaView style={styles.notFound}>
         <Text style={styles.notFoundText}>Room not found</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backBtnText}>Return to Rooms</Text>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.primaryBtnText}>Back to rooms</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
+  const selectedDay = sevenDays.find((d) => d.dateString === selectedDate);
+  const selectedSlot = TIME_SLOTS.find((s) => s.id === selectedSlotId);
+  const dayLabel = selectedDay
+    ? `${selectedDay.dayOfWeek} ${selectedDay.dayNumber} ${selectedDay.month}`
+    : selectedDate;
+
   const handleSlotSelect = (slot: TimeSlot) => {
-    const booked = isSlotBooked(room.id, selectedDate, slot.id);
-    if (booked) {
-      Alert.alert(
-        'Slot Unavailable',
-        `The slot ${slot.label} on ${selectedDate} has already been booked by another student group. Please select an available slot.`
-      );
+    if (isSlotBooked(room.id, selectedDate, slot.id)) {
+      Alert.alert('Slot unavailable', `${slot.label} on ${selectedDate} is already booked.`);
       return;
     }
     setSelectedSlotId(slot.id);
   };
 
   const handleBookPress = async () => {
-    if (!selectedSlotId) {
-      Alert.alert('Selection Required', 'Please choose an available 2-hour time slot.');
-      return;
-    }
-
+    if (!selectedSlotId) return;
     setIsSubmitting(true);
     const result = await createReservation({
       roomId: room.id,
@@ -111,7 +109,7 @@ export const RoomDetailScreen: React.FC = () => {
       setGeneratedPass(result.reservation);
       setPassModalVisible(true);
     } else {
-      Alert.alert('Booking Error', result.error || 'Failed to reserve the room.');
+      Alert.alert('Booking error', result.error || 'Failed to reserve the room.');
     }
   };
 
@@ -121,255 +119,198 @@ export const RoomDetailScreen: React.FC = () => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 24 }}
       >
-        {/* Photo Header */}
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: room.image }} style={styles.image} />
-          <View style={styles.imageOverlay} />
-
+        {/* Hero */}
+        <View style={styles.hero}>
+          <Image source={{ uri: room.image }} style={styles.heroImg} />
+          <View style={styles.heroOverlay} />
           <TouchableOpacity
-            style={styles.floatingBackBtn}
+            style={styles.backBtn}
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
           >
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
-
-          <View style={styles.imageHeaderInfo}>
-            <View style={styles.buildingBadge}>
-              <Text style={styles.buildingBadgeText}>
-                BUILDING {room.building} • FLOOR {room.floor}
+          <View style={styles.heroInfo}>
+            <View style={styles.heroTag}>
+              <Text style={styles.heroTagText}>
+                BUILDING {room.building} · FLOOR {room.floor}
               </Text>
             </View>
-            <Text style={styles.imageRoomTitle}>{room.name}</Text>
+            <Text style={styles.heroTitle}>{room.name}</Text>
           </View>
         </View>
 
-        {/* Room Specifications & Equipment */}
         <View style={styles.body}>
-          <View style={styles.specCardsRow}>
-            <View style={styles.specCard}>
-              <Ionicons name="people" size={18} color="#0F52BA" />
-              <Text style={styles.specCardLabel}>Capacity</Text>
-              <Text style={styles.specCardValue}>{room.capacity} Students</Text>
+          {/* Quick facts */}
+          <View style={styles.factsRow}>
+            <View style={styles.fact}>
+              <Ionicons name="people" size={18} color={colors.primary} />
+              <Text style={styles.factValue}>{room.capacity}</Text>
+              <Text style={styles.factLabel}>seats</Text>
             </View>
-
-            <View style={styles.specCard}>
-              <Ionicons name="location" size={18} color="#0F52BA" />
-              <Text style={styles.specCardLabel}>Location</Text>
-              <Text style={styles.specCardValue}>Bldg {room.building}-F{room.floor}</Text>
+            <View style={styles.fact}>
+              <Ionicons name="time" size={18} color={colors.primary} />
+              <Text style={styles.factValue}>2h</Text>
+              <Text style={styles.factLabel}>per slot</Text>
             </View>
-
-            <View style={styles.specCard}>
-              <Ionicons name="shield-checkmark" size={18} color="#059669" />
-              <Text style={styles.specCardLabel}>Smart Access</Text>
-              <Text style={styles.specCardValue}>QR Reader</Text>
+            <View style={styles.fact}>
+              <Ionicons name="qr-code" size={18} color={colors.primary} />
+              <Text style={styles.factValue}>QR</Text>
+              <Text style={styles.factLabel}>door access</Text>
             </View>
           </View>
 
-          <Text style={styles.sectionHeading}>About this room</Text>
-          <Text style={styles.roomDesc}>{room.description}</Text>
-          <Text style={styles.roomLocDetail}>
-            <Ionicons name="navigate-circle-outline" size={14} color="#64748B" />{' '}
+          <Text style={styles.desc}>{room.description}</Text>
+          <Text style={styles.loc}>
+            <Ionicons name="navigate-circle-outline" size={14} color={colors.textMuted} />{' '}
             {room.locationDetails}
           </Text>
 
-          <Text style={styles.sectionHeading}>Available Equipment</Text>
-          <View style={styles.equipmentRow}>
+          <View style={styles.equipRow}>
             {room.equipment.map((eq) => (
-              <View key={eq} style={styles.equipTag}>
-                <Ionicons name="checkmark-circle" size={14} color="#0F52BA" />
-                <Text style={styles.equipTagText}>{eq}</Text>
+              <View key={eq} style={styles.equipChip}>
+                <Ionicons
+                  name={equipmentIcon[eq] || 'hardware-chip-outline'}
+                  size={14}
+                  color={colors.primary}
+                />
+                <Text style={styles.equipText}>{eq}</Text>
               </View>
             ))}
           </View>
 
-          {/* 7-Day Date Selector */}
-          <View style={styles.dateSelectorHeader}>
-            <Text style={styles.sectionHeading}>1. Select Date (7 Days)</Text>
-            <Text style={styles.dateSelectedLabel}>{selectedDate}</Text>
-          </View>
+          <View style={styles.divider} />
 
+          {/* Step 1: date */}
+          <StepTitle n={1} title="Pick a day" />
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dateScrollContainer}
+            contentContainerStyle={styles.dateRow}
           >
             {sevenDays.map((d) => {
-              const isSelected = selectedDate === d.dateString;
+              const active = selectedDate === d.dateString;
               return (
                 <TouchableOpacity
                   key={d.dateString}
-                  style={[
-                    styles.dateChip,
-                    isSelected && styles.dateChipSelected,
-                  ]}
+                  style={[styles.dateChip, active && styles.dateChipActive]}
                   onPress={() => {
                     setSelectedDate(d.dateString);
-                    setSelectedSlotId(null); // Reset slot selection on date change
+                    setSelectedSlotId(null);
                   }}
                   activeOpacity={0.8}
                 >
-                  <Text
-                    style={[
-                      styles.dateDayName,
-                      isSelected && styles.dateTextSelected,
-                    ]}
-                  >
-                    {d.dayOfWeek}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.dateNumber,
-                      isSelected && styles.dateTextSelected,
-                    ]}
-                  >
-                    {d.dayNumber}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.dateMonth,
-                      isSelected && styles.dateTextSelected,
-                    ]}
-                  >
-                    {d.month}
-                  </Text>
+                  <Text style={[styles.dateDay, active && styles.onActive]}>{d.dayOfWeek}</Text>
+                  <Text style={[styles.dateNum, active && styles.onActive]}>{d.dayNumber}</Text>
+                  <Text style={[styles.dateMonth, active && styles.onActive]}>{d.month}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          {/* 2-Hour Discrete Time Slots & Visual Conflict Engine */}
-          <View style={styles.slotHeaderRow}>
-            <Text style={styles.sectionHeading}>
-              2. Select 2-Hour Time Slot
-            </Text>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
-              <Text style={styles.legendText}>Available</Text>
-              <View style={[styles.legendDot, { backgroundColor: '#CBD5E1', marginLeft: 6 }]} />
-              <Text style={styles.legendText}>Booked</Text>
-            </View>
-          </View>
-
-          <View style={styles.slotsGrid}>
+          {/* Step 2: time */}
+          <StepTitle n={2} title="Pick a time" right="2-hour blocks" />
+          <View style={styles.slotGrid}>
             {TIME_SLOTS.map((slot) => {
-              const isBooked = isSlotBooked(room.id, selectedDate, slot.id);
-              const isSelected = selectedSlotId === slot.id;
-
+              const booked = isSlotBooked(room.id, selectedDate, slot.id);
+              const active = selectedSlotId === slot.id;
               return (
                 <TouchableOpacity
                   key={slot.id}
                   style={[
-                    styles.slotCard,
-                    isBooked && styles.slotCardBooked,
-                    isSelected && styles.slotCardSelected,
+                    styles.slot,
+                    booked && styles.slotBooked,
+                    active && styles.slotActive,
                   ]}
-                  disabled={isBooked}
+                  disabled={booked}
                   onPress={() => handleSlotSelect(slot)}
                   activeOpacity={0.8}
                 >
-                  <View style={styles.slotCardHeader}>
-                    <Text
-                      style={[
-                        styles.slotTimeText,
-                        isBooked && styles.slotTimeTextBooked,
-                        isSelected && styles.slotTimeTextSelected,
-                      ]}
-                    >
-                      {slot.label}
-                    </Text>
-
-                    {isBooked ? (
-                      <View style={styles.conflictBadge}>
-                        <Ionicons name="lock-closed" size={11} color="#64748B" />
-                        <Text style={styles.conflictText}>Booked</Text>
-                      </View>
-                    ) : (
-                      <View
-                        style={[
-                          styles.availableBadge,
-                          isSelected && styles.availableBadgeSelected,
-                        ]}
-                      >
-                        <Ionicons
-                          name={isSelected ? 'checkmark-circle' : 'time-outline'}
-                          size={12}
-                          color={isSelected ? '#0F52BA' : '#059669'}
-                        />
-                        <Text
-                          style={[
-                            styles.availableText,
-                            isSelected && styles.availableTextSelected,
-                          ]}
-                        >
-                          {isSelected ? 'Selected' : 'Open'}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
                   <Text
                     style={[
-                      styles.slotSubtext,
-                      isBooked && styles.slotSubtextBooked,
-                      isSelected && styles.slotSubtextSelected,
+                      styles.slotTime,
+                      booked && styles.slotTimeBooked,
+                      active && styles.onActive,
                     ]}
                   >
-                    {isBooked
-                      ? 'Slot occupied by another study group'
-                      : '2-hour reservation block'}
+                    {slot.label}
                   </Text>
+                  <View style={styles.slotStateRow}>
+                    <Ionicons
+                      name={booked ? 'lock-closed' : active ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={12}
+                      color={booked ? colors.textFaint : active ? '#FFFFFF' : colors.success}
+                    />
+                    <Text
+                      style={[
+                        styles.slotState,
+                        { color: booked ? colors.textFaint : active ? '#FFFFFF' : colors.success },
+                      ]}
+                    >
+                      {booked ? 'Taken' : active ? 'Selected' : 'Open'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* Group / Purpose Form */}
-          <Text style={styles.sectionHeading}>3. Study Group Purpose</Text>
-          <View style={styles.purposeBox}>
+          {/* Step 3: purpose */}
+          <StepTitle n={3} title="What are you working on?" right="optional" />
+          <View style={styles.inputBox}>
             <TextInput
-              style={styles.purposeInput}
-              placeholder="e.g. Capstone AI Research, ACM Team Prep, Software Engineering Sprint..."
-              placeholderTextColor="#94A3B8"
+              style={styles.input}
+              placeholder="e.g. AI capstone, ACM practice..."
+              placeholderTextColor={colors.textFaint}
               value={purpose}
               onChangeText={setPurpose}
               maxLength={100}
             />
           </View>
-
-          {/* Conflict engine safety reminder */}
-          <View style={styles.policyNotice}>
-            <Ionicons name="information-circle" size={16} color="#0F52BA" />
-            <Text style={styles.policyText}>
-              Automatic conflict engine guarantees no collisions. A push reminder will trigger 15 minutes before your session begins.
-            </Text>
+          <View style={styles.suggestRow}>
+            {PURPOSE_SUGGESTIONS.map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={[styles.suggest, purpose === p && styles.suggestActive]}
+                onPress={() => setPurpose(p)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.suggestText, purpose === p && styles.onActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
-          {/* Submit Action */}
-          <TouchableOpacity
-            style={[
-              styles.reserveBtn,
-              !selectedSlotId && styles.reserveBtnDisabled,
-            ]}
-            disabled={!selectedSlotId || isSubmitting}
-            onPress={handleBookPress}
-            activeOpacity={0.88}
-          >
-            <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.reserveBtnText}>
-              {isSubmitting
-                ? 'Reserving Room...'
-                : selectedSlotId
-                ? 'Confirm & Generate Booking Pass'
-                : 'Select an Available Slot to Continue'}
+          <View style={styles.notice}>
+            <Ionicons name="notifications-outline" size={16} color={colors.primary} />
+            <Text style={styles.noticeText}>
+              You'll get a reminder 15 minutes before your session starts.
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
-      {/* QR Code Pass Modal */}
+      {/* Sticky booking bar */}
+      <View style={styles.bottomBar}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sumLabel}>{selectedSlot ? 'Your booking' : 'Choose a time slot'}</Text>
+          <Text style={styles.sumValue} numberOfLines={1}>
+            {selectedSlot ? `${dayLabel} · ${selectedSlot.label}` : room.name}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.bookBtn, !selectedSlotId && styles.bookBtnDisabled]}
+          disabled={!selectedSlotId || isSubmitting}
+          onPress={handleBookPress}
+          activeOpacity={0.88}
+        >
+          <Text style={styles.bookBtnText}>{isSubmitting ? 'Booking...' : 'Book now'}</Text>
+          {!isSubmitting && <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />}
+        </TouchableOpacity>
+      </View>
+
       <QRPassModal
         visible={passModalVisible}
         reservation={generatedPass}
@@ -379,9 +320,7 @@ export const RoomDetailScreen: React.FC = () => {
         }}
         onCheckIn={(id) => {
           checkInReservation(id);
-          if (generatedPass) {
-            setGeneratedPass({ ...generatedPass, status: 'checked_in' });
-          }
+          if (generatedPass) setGeneratedPass({ ...generatedPass, status: 'checked_in' });
         }}
       />
     </SafeAreaView>
@@ -389,355 +328,167 @@ export const RoomDetailScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+  container: { flex: 1, backgroundColor: colors.surface },
+  notFound: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  notFoundText: { fontSize: 16, color: colors.textMuted, marginBottom: 16 },
+  primaryBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 11,
+    paddingHorizontal: 22,
+    borderRadius: radius.md,
   },
-  notFoundContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notFoundText: {
-    fontSize: 16,
-    color: '#64748B',
-    marginBottom: 16,
-  },
+  primaryBtnText: { color: '#FFFFFF', fontWeight: '800' },
+  hero: { height: 240 },
+  heroImg: { width: '100%', height: '100%' },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(46, 31, 122, 0.55)' },
   backBtn: {
-    backgroundColor: '#0F52BA',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  backBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  imageContainer: {
-    width: '100%',
-    height: 240,
-    position: 'relative',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  imageOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-  },
-  floatingBackBtn: {
     position: 'absolute',
     top: 44,
     left: 16,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(27, 23, 48, 0.6)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  imageHeaderInfo: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-  },
-  buildingBadge: {
-    backgroundColor: '#0F52BA',
+  heroInfo: { position: 'absolute', left: 16, right: 16, bottom: 28 },
+  heroTag: {
     alignSelf: 'flex-start',
+    backgroundColor: colors.accent,
     paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     borderRadius: 6,
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  buildingBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  imageRoomTitle: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
+  heroTagText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+  heroTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
   body: {
+    marginTop: -18,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     padding: 16,
   },
-  specCardsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-  },
-  specCard: {
+  factsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  fact: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 10,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+    paddingVertical: 10,
   },
-  specCardLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#64748B',
-    marginTop: 4,
-  },
-  specCardValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  sectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-  roomDesc: {
-    fontSize: 13,
-    color: '#475569',
-    lineHeight: 20,
-    marginBottom: 6,
-  },
-  roomLocDetail: {
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 16,
-  },
-  equipmentRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 22,
-  },
-  equipTag: {
+  factValue: { fontSize: 16, fontWeight: '800', color: colors.primaryDark, marginTop: 2 },
+  factLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '600' },
+  desc: { fontSize: 13, color: colors.textMuted, lineHeight: 20 },
+  loc: { fontSize: 12, color: colors.textMuted, marginTop: 6 },
+  equipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  equipChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
     gap: 5,
-  },
-  equipTagText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1E40AF',
-  },
-  dateSelectorHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  dateSelectedLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0F52BA',
-  },
-  dateScrollContainer: {
-    gap: 8,
-    paddingBottom: 4,
-    marginBottom: 22,
-  },
-  dateChip: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    alignItems: 'center',
+    backgroundColor: colors.bg,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    minWidth: 64,
+    borderColor: colors.border,
   },
-  dateChipSelected: {
-    backgroundColor: '#0F52BA',
-    borderColor: '#0F52BA',
-  },
-  dateDayName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  dateNumber: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginVertical: 2,
-  },
-  dateMonth: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  dateTextSelected: {
-    color: '#FFFFFF',
-  },
-  slotHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  slotsGrid: {
-    gap: 8,
-    marginBottom: 20,
-  },
-  slotCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  slotCardBooked: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#E2E8F0',
-    opacity: 0.65,
-  },
-  slotCardSelected: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#0F52BA',
-  },
-  slotCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  slotTimeText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  slotTimeTextBooked: {
-    color: '#94A3B8',
-    textDecorationLine: 'line-through',
-  },
-  slotTimeTextSelected: {
-    color: '#0F52BA',
-  },
-  conflictBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    gap: 4,
-  },
-  conflictText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  availableBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    gap: 4,
-  },
-  availableBadgeSelected: {
-    backgroundColor: '#DBEAFE',
-  },
-  availableText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  availableTextSelected: {
-    color: '#1E40AF',
-  },
-  slotSubtext: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  slotSubtextBooked: {
-    color: '#DC2626',
-    fontWeight: '500',
-  },
-  slotSubtextSelected: {
-    color: '#1E40AF',
-    fontWeight: '600',
-  },
-  purposeBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 16,
-  },
-  purposeInput: {
-    fontSize: 13,
-    color: '#0F172A',
-  },
-  policyNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 20,
-    gap: 8,
-  },
-  policyText: {
-    fontSize: 12,
-    color: '#1E40AF',
-    flex: 1,
-    lineHeight: 16,
-  },
-  reserveBtn: {
-    flexDirection: 'row',
+  equipText: { fontSize: 12, fontWeight: '600', color: colors.text },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: 18 },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  stepNum: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F52BA',
-    borderRadius: 14,
-    paddingVertical: 14,
+  },
+  stepNumText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  stepTitle: { flex: 1, fontSize: 15, fontWeight: '800', color: colors.text },
+  stepRight: { fontSize: 12, color: colors.textFaint, fontWeight: '600' },
+  dateRow: { gap: 8, paddingBottom: 4, marginBottom: 20 },
+  dateChip: {
+    minWidth: 62,
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dateChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  dateDay: { fontSize: 11, fontWeight: '700', color: colors.textMuted },
+  dateNum: { fontSize: 20, fontWeight: '800', color: colors.text, marginVertical: 1 },
+  dateMonth: { fontSize: 11, fontWeight: '600', color: colors.textMuted },
+  onActive: { color: '#FFFFFF' },
+  slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+  slot: {
+    width: '48%',
+    padding: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  slotBooked: { backgroundColor: colors.bookedSoft },
+  slotActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  slotTime: { fontSize: 14, fontWeight: '800', color: colors.text },
+  slotTimeBooked: { color: colors.textFaint, textDecorationLine: 'line-through' },
+  slotStateRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  slotState: { fontSize: 12, fontWeight: '700' },
+  inputBox: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    height: 46,
+    justifyContent: 'center',
+  },
+  input: { fontSize: 14, color: colors.text },
+  suggestRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 16 },
+  suggest: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+  },
+  suggestActive: { backgroundColor: colors.primary },
+  suggestText: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    shadowColor: '#0F52BA',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.md,
+    padding: 12,
   },
-  reserveBtnDisabled: {
-    backgroundColor: '#94A3B8',
-    shadowOpacity: 0,
-    elevation: 0,
+  noticeText: { flex: 1, fontSize: 12, color: colors.text, lineHeight: 17 },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  reserveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+  sumLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '600' },
+  sumValue: { fontSize: 14, color: colors.text, fontWeight: '800', marginTop: 2 },
+  bookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 13,
+    paddingHorizontal: 22,
+    borderRadius: radius.md,
   },
+  bookBtnDisabled: { backgroundColor: colors.textFaint },
+  bookBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
 });
